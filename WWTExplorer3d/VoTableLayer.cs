@@ -6,6 +6,7 @@ using System.Drawing;
 using System.IO;
 using System.Reflection;
 using System.Xml;
+using System.Linq;
 
 using Vector3 = SharpDX.Vector3;
 
@@ -430,6 +431,19 @@ namespace TerraViewer
                 shapeFileVertex = new TimeSeriesPointSpriteSet(RenderContext11.PrepDevice, vertList.ToArray());
             }
             return true;
+        }
+
+        public override bool checkColumnNumeric(int column)
+        {
+            try
+            {
+                table.Rows.Select(row => Convert.ToDouble(row[column]));
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public override string[] GetDomainValues(int column)

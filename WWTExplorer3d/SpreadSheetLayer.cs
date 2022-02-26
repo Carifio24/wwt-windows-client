@@ -12,7 +12,7 @@ using Microsoft.SqlServer.Types;
 using System.Data.SqlTypes;
 using System.Xml;
 using System.Net;
-
+using System.Linq;
 
 using Vector3 = SharpDX.Vector3;
 
@@ -181,6 +181,7 @@ namespace TerraViewer
             LoadFromString(data as string, true, purgeOld, purgeAll, hasHeader);
             ComputeDateDomainRange(-1, -1);
             dataDirty = true;
+            ColumnsNumeric.Clear();
             return true;
         }
 
@@ -937,10 +938,36 @@ namespace TerraViewer
         }
 
       
+        public override double GetMinValue(int column)
+        {
+            double min = 0;
+            table.Lock();
+            foreach (string[] row in table.Rows)
+            {
+                try
+                {
+                    if (column > -1)
+                    {
+                        bool success = false;
+                        double val = 0;
+                        success = double.TryParse(row[column], out val);
+
+                        if (success && val < min)
+                        {
+                            min = val;
+                        }
+                    }
+                }
+                catch
+                {
+                }
+            }
+            table.Unlock();
+            return min;
+        }
 
 
-
-        public double GetMaxValue(int column)
+        public override double GetMaxValue(int column)
         {
 
             double max = 0;
@@ -968,6 +995,20 @@ namespace TerraViewer
             table.Unlock();
             return max;
         }
+
+        public override bool checkColumnNumeric(int column)
+        {
+            try
+            {
+                table.Rows.Select(row => double.Parse(row[column]));
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
 
         public override string[] GetDomainValues(int column)
         {

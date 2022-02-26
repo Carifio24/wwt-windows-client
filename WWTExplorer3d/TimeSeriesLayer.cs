@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Xml;
 
@@ -10,7 +11,7 @@ using Vector3 = SharpDX.Vector3;
 using Matrix = SharpDX.Matrix;
 namespace TerraViewer
 {
-    public class TimeSeriesLayer : Layer , ITimeSeriesDescription
+    public class TimeSeriesLayer : Layer, ITimeSeriesDescription
     {
         protected TimeSeriesPointSpriteSet shapeFileVertex;
         protected IndexBuffer11 shapeFileIndex;
@@ -21,7 +22,7 @@ namespace TerraViewer
         protected float fixedSize = 1;
         protected float decay = 16;
         protected bool timeSeries = false;
-   
+
         private bool dynamicData = false;
 
         [LayerProperty]
@@ -48,8 +49,8 @@ namespace TerraViewer
             set { dataSourceUrl = value; }
         }
 
-  
-  
+
+
 
         [LayerProperty]
         public bool TimeSeries
@@ -105,15 +106,81 @@ namespace TerraViewer
             }
         }
 
+        Dictionary<int, bool> columnsNumeric = new Dictionary<int, bool>();
+
+        public Dictionary<int,bool> ColumnsNumeric
+        {
+            get { return columnsNumeric; }
+            set
+            {
+                columnsNumeric = value;
+            }
+        }
+
+        public virtual bool checkColumnNumeric(int column)
+        {
+            return false;
+        }
+
+        public bool isColumnNumeric(int column)
+        {
+            if (columnsNumeric.ContainsKey(column))
+            {
+                return columnsNumeric[column];
+            }
+            else
+            {
+                bool isNumeric = checkColumnNumeric(column);
+                columnsNumeric[column] = isNumeric;
+                return isNumeric;
+            }
+        }
+
         public void MakeColorDomainValues()
         {
             string[] domainValues = GetDomainValues(ColorMapColumn);
-            ColorDomainValues.Clear();
-            int index = 0;
-            foreach (string text in domainValues)
+            double[] numericDomainValues = null;
+            bool numeric = isColumnNumeric(ColorMapColumn);
+            if (numeric)
             {
-                ColorDomainValues.Add(text, new DomainValue(text, UiTools.KnownColors[(index++) % 173].ToArgb()));
+                numericDomainValues = domainValues.Select(v => double.Parse(v)).ToArray();
+                Array.Sort(numericDomainValues);;
             }
+            ColorDomainValues.Clear();
+
+            int nValues = domainValues.Length;
+            Colormap colormap = Colormap.Plasma;
+            int nColors = colormap.Count;
+
+            if (numeric)
+            {
+                double min = numericDomainValues.Min();
+                double max = numericDomainValues.Max();
+                Colormap.Normalizer mapper = new Colormap.SquareRootNormalizer(min, max);
+
+                foreach (double value in numericDomainValues)
+                {
+                    string text = value.ToString();
+                    Color color = colormap.getColor(mapper.Normalize(value));
+                    ColorDomainValues.Add(text, new DomainValue(text, color.ToArgb()));
+                }
+            }
+            else
+            {
+                float incr = (float)(nColors - 1) / (float)(nValues - 1);
+                int mapper(int idx)
+                {
+                    return (int)Math.Round(incr * idx);
+                }
+
+                int index = 0;
+                foreach (string text in domainValues)
+                {
+                    int n = mapper(index++);
+                    ColorDomainValues.Add(text, new DomainValue(text, colormap.getColor(n).ToArgb()));
+                }
+            }
+            
         }
 
         public override void WriteLayerProperties(System.Xml.XmlTextWriter xmlWriter)
@@ -241,6 +308,16 @@ namespace TerraViewer
         public virtual string[] GetDomainValues(int column)
         {
             return new string[0];
+        }
+
+        public virtual double GetMinValue(int column)
+        {
+            return 0;
+        }
+
+        public virtual double GetMaxValue(int column)
+        {
+            return 0;
         }
 
         [LayerProperty]
