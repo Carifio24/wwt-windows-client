@@ -7,38 +7,124 @@ using System.Drawing;
 
 namespace TerraViewer
 {
-    public class Colormap
+    public class ColorMapContainer
     {
-        public List<Color> colors = new List<Color>();
 
-        Colormap(List<Color> colors)
+        // This class is intended to be used to store colormaps. It does not handle any
+        // interpolation and when using FindClosestColor it will simply check which
+        // color is closest to the requested value. Therefore, continuous colormaps should
+        // be created by providing a sufficient number of colors (ideally 256 or more).
+
+        public List<Color> colors = new List<Color>();
+        public readonly string name;
+        private static Dictionary<string, ColorMapContainer> colormapsByName; 
+
+        ColorMapContainer(string name, List<Color> colors)
         {
+            this.name = name;
             this.colors = colors;
+            colormapsByName.Add(name.ToLower(), this);
         }
 
-        public Color getColor(double value)
+        public static ColorMapContainer FromArgbList(string name, List<List<int>> colorList)
         {
-            value = Math.Max(value, 0);
-            value = Math.Min(value, 1);
-            int index = (int)Math.Round(value * (colors.Count - 1));
-            return colors[index];
+
+            // Class method to create a new colormap from a list of [a, r, g, b] lists.
+
+            List<Color> colors = new List<Color>();
+            foreach (List<int> color in colorList)
+            {
+               colors.Add(Color.FromArgb(color[0], color[1], color[2], color[3]);
+            }
+            return new ColorMapContainer(name, colors);
+        }
+
+        public static ColorMapContainer FromStringList(string name, List<string> colorList)
+        {
+            List<Color> colors = colorList.Select(s => ColorTranslator.FromHtml(s)).ToList();
+            return new ColorMapContainer(name, colors);
         }
 
         public int Count
         {
-            get
-            {
-                return colors.Count;
-            }
+            get { return colors.Count; }
         }
 
-        public static Colormap FromStringList(List<String> colorList)
+        public Color FindClosestColor(float value)
         {
-            List<Color> colors = colorList.Select(s => ColorTranslator.FromHtml(s)).ToList();
-            return new Colormap(colors);
+            // Given a floating-point value in the range 0 to 1, find the color that is the
+            // closest to it.
+
+            int index;
+
+            if (value <= 0)
+            {
+                return colors[0];
+            }
+            else if (value >= 1)
+            {
+                return colors[colors.Count - 1];
+            }
+            else
+            {
+                index = (int)(value * colors.Count);
+                return colors[index];
+            }
+
         }
 
-        public static Colormap Viridis = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer FromNamedColormap(string name)
+        {
+            name = name.ToLower();
+            if (colormapsByName.ContainsKey(name))
+            {
+                return colormapsByName[name];
+            }
+            return null;
+        }
+
+        public static List<string> NamedColorMaps
+        {
+            get { return colormapsByName.Keys.ToList();  }
+        }
+
+        // The colormaps below were produced using the following Python code:
+        //
+        // import numpy as np
+        // from matplotlib import cm
+        // from matplotlib.colors import to_hex
+        // from textwrap import wrap, indent
+        //
+        // TEMPLATE = """
+        // public static ColorMapContainer {name} = ColorMapContainer.FromStringList(new List<string>{
+        // {colors}
+        // });
+        // """
+        //
+        // TEMPLATE_CASE = """
+        // case "{name_lower}":
+        //     return {name};"""
+        // COLORMAPS = ["viridis", "plasma", "inferno", "magma", "cividis",
+        //             "Greys", "gray", "Purples", "Blues", "Greens", "Oranges", "Reds", "RdYlBu"]
+        //
+        // named_code = ""
+        // case_code = ""
+        //
+        // for name in COLORMAPS:
+        //     cmap = cm.get_cmap(name)
+        //     x = np.linspace(0.5 / 256, 255.5/256, 256)
+        //     colors = ", ".join(['"{0}"'.format(to_hex(c)) for c in cmap(x)])
+        //     pretty_name = name[0].upper() + name[1:]
+        //     named_code += TEMPLATE.format(name=pretty_name, colors=indent('\n'.join(wrap(colors, 90)), " " *  10))
+        //     case_code += TEMPLATE_CASE.format(name=pretty_name, name_lower=name.lower())
+        //
+        // named_code = indent(named_code, " " * 8)
+        //
+        // print(named_code)
+        // print('-' * 72)
+        // print(case_code)
+
+        public static ColorMapContainer Viridis = ColorMapContainer.FromStringList("Viridis", new List<string>{
                 "#440154", "#440256", "#450457", "#450559", "#46075a", "#46085c", "#460a5d", "#460b5e",
                 "#470d60", "#470e61", "#471063", "#471164", "#471365", "#481467", "#481668", "#481769",
                 "#48186a", "#481a6c", "#481b6d", "#481c6e", "#481d6f", "#481f70", "#482071", "#482173",
@@ -73,7 +159,7 @@ namespace TerraViewer
                 "#ece51b", "#efe51c", "#f1e51d", "#f4e61e", "#f6e620", "#f8e621", "#fbe723", "#fde725"
         });
 
-        public static Colormap Plasma = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer Plasma = ColorMapContainer.FromStringList("Plasma", new List<string>{
                 "#0d0887", "#100788", "#130789", "#16078a", "#19068c", "#1b068d", "#1d068e", "#20068f",
                 "#220690", "#240691", "#260591", "#280592", "#2a0593", "#2c0594", "#2e0595", "#2f0596",
                 "#310597", "#330597", "#350498", "#370499", "#38049a", "#3a049a", "#3c049b", "#3e049c",
@@ -108,7 +194,7 @@ namespace TerraViewer
                 "#f4ed27", "#f3ee27", "#f3f027", "#f2f227", "#f1f426", "#f1f525", "#f0f724", "#f0f921"
         });
 
-        public static Colormap Inferno = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer Inferno = ColorMapContainer.FromStringList("Inferno", new List<string>{
                 "#000004", "#010005", "#010106", "#010108", "#02010a", "#02020c", "#02020e", "#030210",
                 "#040312", "#040314", "#050417", "#060419", "#07051b", "#08051d", "#09061f", "#0a0722",
                 "#0b0724", "#0c0826", "#0d0829", "#0e092b", "#10092d", "#110a30", "#120a32", "#140b34",
@@ -143,7 +229,7 @@ namespace TerraViewer
                 "#f3f68a", "#f4f88e", "#f5f992", "#f6fa96", "#f8fb9a", "#f9fc9d", "#fafda1", "#fcffa4"
         });
 
-        public static Colormap Magma = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer Magma = ColorMapContainer.FromStringList("Magma", new List<string>{
                 "#000004", "#010005", "#010106", "#010108", "#020109", "#02020b", "#02020d", "#03030f",
                 "#030312", "#040414", "#050416", "#060518", "#06051a", "#07061c", "#08071e", "#090720",
                 "#0a0822", "#0b0924", "#0c0926", "#0d0a29", "#0e0b2b", "#100b2d", "#110c2f", "#120d31",
@@ -178,7 +264,7 @@ namespace TerraViewer
                 "#fcf0b2", "#fcf2b4", "#fcf4b6", "#fcf6b8", "#fcf7b9", "#fcf9bb", "#fcfbbd", "#fcfdbf"
         });
 
-        public static Colormap Cividis = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer Cividis = ColorMapContainer.FromStringList("Cividis", new List<string>{
                 "#00224e", "#00234f", "#002451", "#002553", "#002554", "#002656", "#002758", "#002859",
                 "#00285b", "#00295d", "#002a5f", "#002a61", "#002b62", "#002c64", "#002c66", "#002d68",
                 "#002e6a", "#002e6c", "#002f6d", "#00306f", "#003070", "#003170", "#003171", "#013271",
@@ -213,7 +299,7 @@ namespace TerraViewer
                 "#f9e03a", "#fbe138", "#fce236", "#fde334", "#fee434", "#fee535", "#fee636", "#fee838"
         });
 
-        public static Colormap Greys = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer Greys = ColorMapContainer.FromStringList("Greys", new List<string>{
                 "#ffffff", "#ffffff", "#fefefe", "#fefefe", "#fdfdfd", "#fdfdfd", "#fcfcfc", "#fcfcfc",
                 "#fbfbfb", "#fbfbfb", "#fafafa", "#fafafa", "#f9f9f9", "#f9f9f9", "#f8f8f8", "#f8f8f8",
                 "#f7f7f7", "#f7f7f7", "#f7f7f7", "#f6f6f6", "#f6f6f6", "#f5f5f5", "#f5f5f5", "#f4f4f4",
@@ -248,7 +334,7 @@ namespace TerraViewer
                 "#080808", "#070707", "#060606", "#050505", "#030303", "#020202", "#010101", "#000000"
         });
 
-        public static Colormap Gray = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer Gray = ColorMapContainer.FromStringList("Gray", new List<string>{
                 "#000000", "#010101", "#020202", "#030303", "#040404", "#050505", "#060606", "#070707",
                 "#080808", "#090909", "#0a0a0a", "#0b0b0b", "#0c0c0c", "#0d0d0d", "#0e0e0e", "#0f0f0f",
                 "#101010", "#111111", "#121212", "#131313", "#141414", "#151515", "#161616", "#171717",
@@ -283,7 +369,7 @@ namespace TerraViewer
                 "#f8f8f8", "#f9f9f9", "#fafafa", "#fbfbfb", "#fcfcfc", "#fdfdfd", "#fefefe", "#ffffff"
         });
 
-        public static Colormap Purples = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer Purples = ColorMapContainer.FromStringList("Purples", new List<string>{
                 "#fcfbfd", "#fcfbfd", "#fbfafc", "#fbfafc", "#faf9fc", "#faf9fc", "#faf8fb", "#f9f8fb",
                 "#f9f7fb", "#f8f7fb", "#f8f7fa", "#f8f6fa", "#f7f6fa", "#f7f5fa", "#f6f5f9", "#f6f4f9",
                 "#f5f4f9", "#f5f4f9", "#f5f3f8", "#f4f3f8", "#f4f2f8", "#f3f2f8", "#f3f1f7", "#f3f1f7",
@@ -318,7 +404,7 @@ namespace TerraViewer
                 "#440981", "#430780", "#420680", "#42057f", "#41047f", "#40027e", "#40017e", "#3f007d"
         });
 
-        public static Colormap Blues = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer Blues = ColorMapContainer.FromStringList("Blues", new List<string>{
                 "#f7fbff", "#f6faff", "#f5fafe", "#f5f9fe", "#f4f9fe", "#f3f8fe", "#f2f8fd", "#f2f7fd",
                 "#f1f7fd", "#f0f6fd", "#eff6fc", "#eef5fc", "#eef5fc", "#edf4fc", "#ecf4fb", "#ebf3fb",
                 "#eaf3fb", "#eaf2fb", "#e9f2fa", "#e8f1fa", "#e7f1fa", "#e7f0fa", "#e6f0f9", "#e5eff9",
@@ -353,7 +439,7 @@ namespace TerraViewer
                 "#083776", "#083674", "#083573", "#083471", "#083370", "#08326e", "#08316d", "#08306b"
         });
 
-        public static Colormap Greens = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer Greens = ColorMapContainer.FromStringList("Greens", new List<string>{
                 "#f7fcf5", "#f6fcf4", "#f6fcf4", "#f5fbf3", "#f5fbf2", "#f4fbf2", "#f4fbf1", "#f3faf0",
                 "#f2faf0", "#f2faef", "#f1faee", "#f1faee", "#f0f9ed", "#f0f9ec", "#eff9ec", "#eff9eb",
                 "#eef8ea", "#edf8ea", "#edf8e9", "#ecf8e8", "#ecf8e8", "#ebf7e7", "#ebf7e7", "#eaf7e6",
@@ -388,7 +474,7 @@ namespace TerraViewer
                 "#004d1f", "#004c1e", "#004a1e", "#00491d", "#00481d", "#00471c", "#00451c", "#00441b"
         });
 
-        public static Colormap Oranges = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer Oranges = ColorMapContainer.FromStringList("Oranges", new List<string>{
                 "#fff5eb", "#fff5ea", "#fff4e9", "#fff4e8", "#fff3e7", "#fff3e6", "#fff2e6", "#fff2e5",
                 "#fff1e4", "#fff1e3", "#fff0e2", "#fff0e1", "#ffefe0", "#ffefdf", "#ffeede", "#ffeedd",
                 "#feeddc", "#feeddc", "#feeddb", "#feecda", "#feecd9", "#feebd8", "#feebd7", "#feead6",
@@ -423,7 +509,7 @@ namespace TerraViewer
                 "#882a04", "#862a04", "#852904", "#842904", "#832804", "#812804", "#802704", "#7f2704"
         });
 
-        public static Colormap Reds = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer Reds = ColorMapContainer.FromStringList("Reds", new List<string>{
                 "#fff5f0", "#fff4ef", "#fff4ee", "#fff3ed", "#fff2ec", "#fff2eb", "#fff1ea", "#fff0e9",
                 "#fff0e8", "#ffefe8", "#ffeee7", "#ffeee6", "#ffede5", "#ffece4", "#ffece3", "#ffebe2",
                 "#feeae1", "#feeae0", "#fee9df", "#fee8de", "#fee8dd", "#fee7dc", "#fee7db", "#fee6da",
@@ -458,7 +544,7 @@ namespace TerraViewer
                 "#75030f", "#73030f", "#71020e", "#6f020e", "#6d010e", "#6b010e", "#69000d", "#67000d"
         });
 
-        public static Colormap RdYlBu = Colormap.FromStringList(new List<string>{
+        public static ColorMapContainer RdYlBu = ColorMapContainer.FromStringList("RdYlBu", new List<string>{
                 "#a50026", "#a70226", "#a90426", "#ab0626", "#ad0826", "#af0926", "#b10b26", "#b30d26",
                 "#b50f26", "#b71126", "#b91326", "#bb1526", "#bd1726", "#be1827", "#c01a27", "#c21c27",
                 "#c41e27", "#c62027", "#c82227", "#ca2427", "#cc2627", "#ce2827", "#d02927", "#d22b27",
@@ -493,24 +579,26 @@ namespace TerraViewer
                 "#36479e", "#36459c", "#35429b", "#34409a", "#333d99", "#333b97", "#323896", "#313695"
         });
 
+        public static ColorMapContainer Legacy = new ColorMapContainer("Legacy", UiTools.KnownColors.ToList());
+
         public class Normalizer
         {
-            protected double min;
-            protected double max;
-            double slope;
+            protected float min;
+            protected float max;
+            float slope;
 
-            public Normalizer(double min, double max)
+            public Normalizer(float min, float max)
             {
                 this.min = Transform(min);
                 this.max = Transform(max);
-                this.slope = 1 / ((double)(this.max - this.min));
+                this.slope = 1 / ((float)(this.max - this.min);
             }
 
-            public virtual double Transform(double value)
+            public virtual float Transform(float value)
             {
                 return value;
             }
-            public double Normalize(double value)
+            public float Normalize(float value)
             {   
                 return slope * (Transform(value) - min);
             }
@@ -518,21 +606,21 @@ namespace TerraViewer
 
         public class LogNormalizer: Normalizer
         {
-            public LogNormalizer(double min, double max) : base(min, max) { }
+            public LogNormalizer(float min, float max) : base(min, max) { }
 
-            public override double Transform(double value)
+            public override float Transform(float value)
             {
-                return Math.Log(value);
+                return (float)Math.Log(value);
             }
         }
 
         public class SquareRootNormalizer: Normalizer
         {
-            public SquareRootNormalizer(double min, double max) : base(min, max) { }
+            public SquareRootNormalizer(float min, float max) : base(min, max) { }
 
-            public override double Transform(double value)
+            public override float Transform(float value)
             {
-                return Math.Sqrt(value);
+                return (float)Math.Sqrt(value);
             }
         }
 

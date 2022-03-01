@@ -437,7 +437,7 @@ namespace TerraViewer
         {
             try
             {
-                table.Rows.Select(row => Convert.ToDouble(row[column]));
+                table.Rows.Select(row => Convert.ToSingle(row[column]));
                 return true;
             }
             catch

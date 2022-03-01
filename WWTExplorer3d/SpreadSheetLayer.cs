@@ -1000,7 +1000,7 @@ namespace TerraViewer
         {
             try
             {
-                table.Rows.Select(row => double.Parse(row[column]));
+                table.Rows.Select(row => float.Parse(row[column]));
                 return true;
             }
             catch

@@ -149,19 +149,19 @@ namespace TerraViewer
             ColorDomainValues.Clear();
 
             int nValues = domainValues.Length;
-            Colormap colormap = Colormap.Plasma;
+            ColorMapContainer colormap = ColorMapper;
             int nColors = colormap.Count;
 
             if (numeric)
             {
                 double min = numericDomainValues.Min();
                 double max = numericDomainValues.Max();
-                Colormap.Normalizer mapper = new Colormap.SquareRootNormalizer(min, max);
+                ColorMapContainer.Normalizer mapper = new ColorMapContainer.SquareRootNormalizer(min, max);
 
                 foreach (double value in numericDomainValues)
                 {
                     string text = value.ToString();
-                    Color color = colormap.getColor(mapper.Normalize(value));
+                    Color color = colormap.FindClosestColor(mapper.Normalize(value));
                     ColorDomainValues.Add(text, new DomainValue(text, color.ToArgb()));
                 }
             }
@@ -568,6 +568,25 @@ namespace TerraViewer
                     colorMap = value;
                 }
             }
+        }
+
+        protected string colorMapperName = "Greys";
+
+        public string ColorMapperName
+        {
+            get { return colorMapperName; }
+            set
+            {
+                if (ColorMapContainer.FromNamedColormap(value) == null)
+                    throw new Exception("Invalid colormap name");
+                version++;
+                colorMapperName = value;
+            }
+        }
+
+        public ColorMapContainer ColorMapper
+        {
+            get { return ColorMapContainer.FromNamedColormap(colorMapperName); }
         }
 
 

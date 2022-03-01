@@ -45,6 +45,9 @@ namespace TerraViewer
 
             ColorMapType.Items.AddRange(Enum.GetNames(typeof(TimeSeriesLayer.ColorMaps)));
             ColorMapType.SelectedIndex = (int)layer.ColorMap;
+
+            ColorMapName.Items.Add(ColorMapContainer.NamedColorMaps);
+            ColorMapName.SelectedIndex = ColorMapContainer.NamedColorMaps.IndexOf(layer.ColorMapperName);
         }
 
         private void ColorMapColumn_SelectionChanged(object sender, EventArgs e)
@@ -143,6 +146,16 @@ namespace TerraViewer
             }
 
             domainList.Refresh();
+        }
+
+        private void ColorMapName_SelectionChanged(object sender, EventArgs e)
+        {
+            layer.ColorMapperName = (string)ColorMapName.Items[ColorMapName.SelectedIndex];
+        }
+
+        private void Normalization_SelectionChanged(object sender, EventArgs e)
+        {
+            
         }
     }
 }
